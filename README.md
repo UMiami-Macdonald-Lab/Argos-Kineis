@@ -44,8 +44,7 @@ The script includes:
 10. Evaluating temporal clustering using the coefficient of variation of transmission intervals
 11. Comparing Argos and Kineis location quality class distributions
 12. Comparing Kineis continuous error radii with conventional Argos class-based error assumptions
-13. Summarizing behavioral-state classifications and matched-day agreement
-14. Exporting statistical tables, model diagnostics, figures, spatial files, and supplemental outputs
+13. Exporting statistical tables, model diagnostics, figures, spatial files, and supplemental outputs
 
 ## Analytical Workflows
 
@@ -179,7 +178,6 @@ The workflow produces publication-ready `.png` and `.pdf` figures for:
 * Kineis positional error
 * Kineis-to-Argos expected-error ratios
 * Model diagnostics
-* Behavioral-state comparisons
 
 ## Reproducibility Notes
 
