@@ -10,8 +10,7 @@
 #   6. Transmission spacing, clustering, and transmission-yield models
 #   7. Location-class distributions and continuous-error comparisons
 #   8. Species-level pooled KDE areas and Jaccard overlap
-#   9. Behavioral-state matched-day comparison, when BayesMove outputs exist
-#  10. Supplemental output inventory and session information
+#  9. Supplemental output inventory and session information
 #
 # Place this script in the same working directory as:
 #   Argos-Sharks.xls
@@ -2817,125 +2816,7 @@ if (nrow(species_kde_polys) > 0) {
 }
 
 # =============================================================================
-# 09_BEHAVIORAL_STATE_COMPARISON
-# =============================================================================
-# This section runs when two state-assignment files are available. Each file
-# should contain track ID, timestamp/date, and a behavioral state. Optional
-# projected x/y coordinates allow step-length and turning-angle summaries.
-
-find_first_col <- function(nms, candidates) {
-  hit <- candidates[candidates %in% nms]
-  if (length(hit) == 0) NA_character_ else hit[1]
-}
-
-standardize_behavior <- function(path, system_name) {
-  x <- readr::read_csv(path, show_col_types = FALSE)
-  id_col <- find_first_col(names(x), c("track_id", "id", "shark", "tag_id"))
-  time_col <- find_first_col(names(x), c("timestamp", "date", "datetime", "time"))
-  state_col <- find_first_col(names(x), c("state", "behavior", "behaviour", "state_label"))
-  x_col <- find_first_col(names(x), c("x", "x_coord", "utm_x", "easting"))
-  y_col <- find_first_col(names(x), c("y", "y_coord", "utm_y", "northing"))
-
-  if (any(is.na(c(id_col, time_col, state_col)))) {
-    stop(path, " must include ID, timestamp/date, and state columns.")
-  }
-
-  out <- x %>%
-    dplyr::transmute(
-      track_id = as.character(.data[[id_col]]),
-      timestamp = lubridate::as_datetime(.data[[time_col]], tz = "UTC"),
-      state = as.character(.data[[state_col]]),
-      x = if (!is.na(x_col)) as.numeric(.data[[x_col]]) else NA_real_,
-      y = if (!is.na(y_col)) as.numeric(.data[[y_col]]) else NA_real_,
-      system = system_name
-    ) %>%
-    dplyr::filter(!is.na(track_id), !is.na(timestamp), !is.na(state))
-
-  out
-}
-
-argos_behavior_file <- "Argos_BayesMove_states.csv"
-kineis_behavior_file <- "Kineis_BayesMove_states.csv"
-
-if (
-  RUN_BEHAVIOR_IF_AVAILABLE &&
-  file.exists(argos_behavior_file) &&
-  file.exists(kineis_behavior_file)
-) {
-  behavior_df <- dplyr::bind_rows(
-    standardize_behavior(argos_behavior_file, "Argos"),
-    standardize_behavior(kineis_behavior_file, "Kineis")
-  ) %>%
-    dplyr::mutate(day = as.Date(timestamp))
-
-  daily_states <- behavior_df %>%
-    dplyr::count(track_id, system, day, state, name = "n_state") %>%
-    dplyr::group_by(track_id, system, day) %>%
-    dplyr::slice_max(n_state, n = 1, with_ties = FALSE) %>%
-    dplyr::ungroup() %>%
-    dplyr::select(track_id, system, day, dominant_state = state) %>%
-    tidyr::pivot_wider(names_from = system, values_from = dominant_state) %>%
-    dplyr::filter(!is.na(Argos), !is.na(Kineis)) %>%
-    dplyr::mutate(agreement = Argos == Kineis)
-
-  behavior_agreement_by_shark <- daily_states %>%
-    dplyr::group_by(track_id) %>%
-    dplyr::summarise(
-      n_matched_days = dplyr::n(),
-      n_agree = sum(agreement),
-      proportion_agreement = mean(agreement),
-      .groups = "drop"
-    )
-
-  behavior_state_composition <- behavior_df %>%
-    dplyr::count(track_id, system, state, name = "n") %>%
-    dplyr::group_by(track_id, system) %>%
-    dplyr::mutate(proportion = n / sum(n)) %>%
-    dplyr::ungroup()
-
-  movement_metrics <- behavior_df %>%
-    dplyr::filter(!is.na(x), !is.na(y)) %>%
-    dplyr::arrange(track_id, system, timestamp) %>%
-    dplyr::group_by(track_id, system) %>%
-    dplyr::mutate(
-      dx = x - dplyr::lag(x),
-      dy = y - dplyr::lag(y),
-      step_length = sqrt(dx^2 + dy^2),
-      heading = atan2(dy, dx),
-      turning_angle = atan2(
-        sin(heading - dplyr::lag(heading)),
-        cos(heading - dplyr::lag(heading))
-      )
-    ) %>%
-    dplyr::summarise(
-      median_log_step_length = median(log1p(step_length), na.rm = TRUE),
-      median_absolute_turning_angle = median(abs(turning_angle), na.rm = TRUE),
-      .groups = "drop"
-    )
-
-  safe_write_csv(daily_states, "Supplemental_Behavior_Matched_Days.csv")
-  safe_write_csv(
-    behavior_agreement_by_shark,
-    "Supplemental_Behavior_Agreement_By_Shark.csv"
-  )
-  safe_write_csv(
-    behavior_state_composition,
-    "Supplemental_Behavior_State_Composition.csv"
-  )
-  safe_write_csv(
-    movement_metrics,
-    "Supplemental_Behavior_Movement_Metrics.csv"
-  )
-} else {
-  message(
-    "\nBehavioral comparison skipped. Add ",
-    argos_behavior_file, " and ", kineis_behavior_file,
-    " to run Section 09.\n"
-  )
-}
-
-# =============================================================================
-# 10_SUPPLEMENTAL_OUTPUT_INVENTORY_AND_SESSION_INFO
+# 9_SUPPLEMENTAL_OUTPUT_INVENTORY_AND_SESSION_INFO
 # =============================================================================
 
 all_outputs <- list.files(
